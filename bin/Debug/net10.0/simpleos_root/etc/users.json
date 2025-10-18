@@ -1,0 +1,26 @@
+[
+  {
+    "Username": "user",
+    "Password": "password",
+    "HomeDirectory": "/home/user",
+    "UserType": 0
+  },
+  {
+    "Username": "operator",
+    "Password": "op123",
+    "HomeDirectory": "/home/operator",
+    "UserType": 1
+  },
+  {
+    "Username": "dev",
+    "Password": "dev123",
+    "HomeDirectory": "/home/dev",
+    "UserType": 2
+  },
+  {
+    "Username": "root",
+    "Password": "toor",
+    "HomeDirectory": "/root",
+    "UserType": 2
+  }
+]

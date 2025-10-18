@@ -1,0 +1,14 @@
+C:\Users\Пользователь\source\repos\SimpleOS\SimpleOS\bin\Debug\net10.0\SimpleOS.exe
+C:\Users\Пользователь\source\repos\SimpleOS\SimpleOS\bin\Debug\net10.0\SimpleOS.deps.json
+C:\Users\Пользователь\source\repos\SimpleOS\SimpleOS\bin\Debug\net10.0\SimpleOS.runtimeconfig.json
+C:\Users\Пользователь\source\repos\SimpleOS\SimpleOS\bin\Debug\net10.0\SimpleOS.dll
+C:\Users\Пользователь\source\repos\SimpleOS\SimpleOS\bin\Debug\net10.0\SimpleOS.pdb
+C:\Users\Пользователь\source\repos\SimpleOS\SimpleOS\obj\Debug\net10.0\SimpleOS.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Пользователь\source\repos\SimpleOS\SimpleOS\obj\Debug\net10.0\SimpleOS.AssemblyInfoInputs.cache
+C:\Users\Пользователь\source\repos\SimpleOS\SimpleOS\obj\Debug\net10.0\SimpleOS.AssemblyInfo.cs
+C:\Users\Пользователь\source\repos\SimpleOS\SimpleOS\obj\Debug\net10.0\SimpleOS.csproj.CoreCompileInputs.cache
+C:\Users\Пользователь\source\repos\SimpleOS\SimpleOS\obj\Debug\net10.0\SimpleOS.dll
+C:\Users\Пользователь\source\repos\SimpleOS\SimpleOS\obj\Debug\net10.0\refint\SimpleOS.dll
+C:\Users\Пользователь\source\repos\SimpleOS\SimpleOS\obj\Debug\net10.0\SimpleOS.pdb
+C:\Users\Пользователь\source\repos\SimpleOS\SimpleOS\obj\Debug\net10.0\SimpleOS.genruntimeconfig.cache
+C:\Users\Пользователь\source\repos\SimpleOS\SimpleOS\obj\Debug\net10.0\ref\SimpleOS.dll
