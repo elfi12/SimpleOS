@@ -17,17 +17,17 @@ namespace SimpleOS
         public static void Main(string[] args)
         {
             Console.WriteLine("=== SimpleOS Bootloader v3.8 ===");
-            
+
             if (!CheckSystemRequirements())
             {
                 Console.WriteLine("System requirements not met. Minimum: .NET 6.0, 100MB RAM");
                 return;
             }
-            
+
             Kernel os = new Kernel();
             os.Start();
         }
-        
+
         private static bool CheckSystemRequirements()
         {
             try
@@ -38,13 +38,13 @@ namespace SimpleOS
                     Console.WriteLine($"❌ .NET 6.0+ required. Current: {version}");
                     return false;
                 }
-                
+
                 var process = Process.GetCurrentProcess();
                 if (process.WorkingSet64 < 100 * 1024 * 1024)
                 {
                     Console.WriteLine("⚠️  Low memory warning");
                 }
-                
+
                 return true;
             }
             catch
@@ -57,7 +57,7 @@ namespace SimpleOS
     public enum UserType
     {
         User,
-        Operator, 
+        Operator,
         Developer,
         Admin
     }
@@ -76,12 +76,12 @@ namespace SimpleOS
     public class ConsoleDriver
     {
         private Dictionary<string, ConsoleColor> colorMap;
-        
+
         public ConsoleDriver()
         {
             InitializeColors();
         }
-        
+
         private void InitializeColors()
         {
             colorMap = new Dictionary<string, ConsoleColor>
@@ -95,12 +95,12 @@ namespace SimpleOS
                 ["path"] = ConsoleColor.Magenta
             };
         }
-        
+
         public void Clear() => Console.Clear();
         public void Write(string text) => Console.Write(text);
         public void WriteLine(string text = "") => Console.WriteLine(text);
         public string ReadLine() => Console.ReadLine() ?? "";
-        
+
         public void WriteColor(string text, string colorType)
         {
             if (colorMap.ContainsKey(colorType))
@@ -115,7 +115,7 @@ namespace SimpleOS
                 Console.Write(text);
             }
         }
-        
+
         public void WriteLineColor(string text, string colorType)
         {
             WriteColor(text + Environment.NewLine, colorType);
@@ -126,7 +126,7 @@ namespace SimpleOS
     {
         private string systemRoot;
         private Dictionary<string, FileMetadata> fileMetadata;
-        
+
         public FileSystem(string rootPath)
         {
             systemRoot = rootPath;
@@ -154,16 +154,16 @@ namespace SimpleOS
             CreateRealDirectory("/usr/local/bin");
             CreateRealDirectory("/mnt");
             CreateRealDirectory("/proc");
-            
+
             CreateRealFile("/etc/motd", "Welcome to SimpleOS v3.8 'Quantum Edition'!\nNew features: AI Assistant, Cloud Sync, Virtualization\n");
             CreateRealFile("/etc/version", "SimpleOS 3.8.0 Quantum Edition\nKernel: 3.8.0-rc1\nBuild: 2024-Q1\n");
             CreateRealFile("/var/log/system.log", GenerateSystemLog());
             CreateRealFile("/home/user/readme.txt", "Welcome! New in v3.8: AI Assistant, Cloud Sync, Virtual Machines, Docker support\n");
-            
+
             CreateRealFile("/home/user/document.txt", "This is a test document.\nLine 2 of the document.\nAnother line for testing grep.");
             CreateRealFile("/home/user/data.csv", "name,age,city\nJohn,25,New York\nAlice,30,London\nBob,22,Tokyo");
             CreateRealFile("/home/user/script.py", "#!/usr/bin/env python3\nprint('Hello from SimpleOS 3.8!')\n\ndef calculate_fibonacci(n):\n    if n <= 1:\n        return n\n    return calculate_fibonacci(n-1) + calculate_fibonacci(n-2)");
-            
+
             CreateRealFile("/home/user/ai_demo.md", "# AI Assistant Demo\nTry commands: `ai help`, `ai code python fibonacci`, `ai explain kernel`");
             CreateRealFile("/home/user/cloud_sync.txt", "This file will be synced with cloud storage\nEdit me and see cloud versioning in action!");
         }
@@ -204,22 +204,22 @@ namespace SimpleOS
             if (!File.Exists(realPath))
                 File.WriteAllText(realPath, content);
         }
-        
+
         public void SetFileMetadata(string virtualPath, FileMetadata metadata)
         {
             fileMetadata[virtualPath] = metadata;
         }
-        
+
         public FileMetadata GetFileMetadata(string virtualPath)
         {
             return fileMetadata.ContainsKey(virtualPath) ? fileMetadata[virtualPath] : new FileMetadata();
         }
-        
+
         public void CreateSymlink(string targetPath, string linkPath)
         {
             string realLinkPath = GetRealPath(linkPath);
             string realTargetPath = GetRealPath(targetPath);
-            
+
             File.WriteAllText(realLinkPath, $"[SYMLINK]->{targetPath}");
         }
     }
@@ -343,14 +343,31 @@ namespace SimpleOS
                     if (loadedUsers != null && loadedUsers.Count > 0)
                     {
                         users = loadedUsers;
+                        Console.WriteLine($"📁 Loaded {users.Count} users from file");
+                        foreach (var user in users)
+                        {
+                            Console.WriteLine($"   👤 {user.Username} ({user.UserType}) - Active: {user.IsActive}");
+                        }
                         return;
                     }
+                    else
+                    {
+                        Console.WriteLine("⚠️  Users file is empty or corrupted");
+                    }
                 }
+                else
+                {
+                    Console.WriteLine("📁 No users file found, creating default users");
+                }
+
                 InitializeDefaultUsers();
                 SaveUsers();
+                Console.WriteLine("✅ Created default users");
             }
-            catch
+            catch (Exception ex)
             {
+                Console.WriteLine($"❌ Error loading users: {ex.Message}");
+                Console.WriteLine("🔄 Creating default users...");
                 InitializeDefaultUsers();
             }
         }
@@ -362,57 +379,91 @@ namespace SimpleOS
                 Directory.CreateDirectory(Path.GetDirectoryName(UsersFilePath));
                 string json = JsonSerializer.Serialize(users, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(UsersFilePath, json);
+                Console.WriteLine($"💾 Saved {users.Count} users to file");
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error saving users: {ex.Message}");
+            }
         }
 
         private void InitializeDefaultUsers()
         {
             var now = DateTime.Now;
-            users.Add(new User { 
-                Username = "user", 
-                Password = "password", 
-                HomeDirectory = "/home/user", 
+
+            users.Clear();
+
+            users.Add(new User
+            {
+                Username = "user",
+                Password = "password",
+                HomeDirectory = "/home/user",
                 UserType = UserType.User,
-                AccountCreated = now
+                AccountCreated = now,
+                IsActive = true,
+                LastLogin = now
             });
-            users.Add(new User { 
-                Username = "operator", 
-                Password = "op123", 
-                HomeDirectory = "/home/operator", 
+            users.Add(new User
+            {
+                Username = "operator",
+                Password = "op123",
+                HomeDirectory = "/home/operator",
                 UserType = UserType.Operator,
-                AccountCreated = now
+                AccountCreated = now,
+                IsActive = true,
+                LastLogin = now
             });
-            users.Add(new User { 
-                Username = "dev", 
-                Password = "dev123", 
-                HomeDirectory = "/home/dev", 
+            users.Add(new User
+            {
+                Username = "dev",
+                Password = "dev123",
+                HomeDirectory = "/home/dev",
                 UserType = UserType.Developer,
-                AccountCreated = now
+                AccountCreated = now,
+                IsActive = true,
+                LastLogin = now
             });
-            users.Add(new User { 
-                Username = "admin", 
-                Password = "admin123", 
-                HomeDirectory = "/home/admin", 
+            users.Add(new User
+            {
+                Username = "admin",
+                Password = "admin123",
+                HomeDirectory = "/home/admin",
                 UserType = UserType.Admin,
-                AccountCreated = now
+                AccountCreated = now,
+                IsActive = true,
+                LastLogin = now
             });
-            users.Add(new User { 
-                Username = "root", 
-                Password = "toor", 
-                HomeDirectory = "/root", 
+            users.Add(new User
+            {
+                Username = "root",
+                Password = "toor",
+                HomeDirectory = "/root",
                 UserType = UserType.Admin,
-                AccountCreated = now
+                AccountCreated = now,
+                IsActive = true,
+                LastLogin = now
             });
+
+            Console.WriteLine("👥 Default users initialized:");
+            foreach (var user in users)
+            {
+                Console.WriteLine($"   {user.Username} / {user.Password} -> {user.HomeDirectory}");
+            }
         }
 
         public User Authenticate(string username, string password)
         {
-            var user = users.FirstOrDefault(u => u.Username == username && u.Password == password && u.IsActive);
+            Console.WriteLine($"\n🔐 Attempting login for: '{username}'");
+
+            var user = users.FirstOrDefault(u =>
+                u.Username == username &&
+                u.Password == password &&
+                u.IsActive);
+
             if (user != null)
             {
                 user.LastLogin = DateTime.Now;
-                
+
                 activeSessions[username] = new UserSession
                 {
                     Username = username,
@@ -420,44 +471,254 @@ namespace SimpleOS
                     SessionId = Guid.NewGuid().ToString(),
                     LastActivity = DateTime.Now
                 };
-                
+
                 SaveUsers();
+                Console.WriteLine($"✅ Login successful! Welcome, {username}");
+                return user;
             }
-            return user;
+
+            Console.WriteLine($"❌ Login failed for: '{username}'");
+
+            var userExists = users.Any(u => u.Username == username);
+            if (!userExists)
+            {
+                Console.WriteLine($"   ❌ User '{username}' not found in database");
+                Console.WriteLine($"   📋 Available users: {string.Join(", ", users.Select(u => u.Username))}");
+            }
+            else
+            {
+                var foundUser = users.First(u => u.Username == username);
+                if (foundUser.Password != password)
+                {
+                    Console.WriteLine($"   ❌ Invalid password for '{username}'");
+                    Console.WriteLine($"   💡 Expected: '{foundUser.Password}', Got: '{password}'");
+                }
+                if (!foundUser.IsActive)
+                {
+                    Console.WriteLine($"   ❌ User '{username}' is inactive");
+                }
+            }
+
+            return null;
         }
 
         public void Logout(string username)
         {
             if (activeSessions.ContainsKey(username))
+            {
                 activeSessions.Remove(username);
+                Console.WriteLine($"👋 User {username} logged out");
+            }
         }
 
         public bool AddUser(string username, string password, UserType userType = UserType.User)
         {
-            if (users.Any(u => u.Username == username)) return false;
-            users.Add(new User { 
-                Username = username, 
-                Password = password, 
-                HomeDirectory = $"/home/{username}", 
+            if (users.Any(u => u.Username == username))
+            {
+                Console.WriteLine($"❌ User '{username}' already exists");
+                return false;
+            }
+
+            users.Add(new User
+            {
+                Username = username,
+                Password = password,
+                HomeDirectory = $"/home/{username}",
                 UserType = userType,
-                AccountCreated = DateTime.Now
+                AccountCreated = DateTime.Now,
+                IsActive = true
             });
+
+            SaveUsers();
+            Console.WriteLine($"✅ User '{username}' created successfully");
             return true;
         }
 
         public bool ChangePassword(string username, string newPassword)
         {
             var user = users.FirstOrDefault(u => u.Username == username);
-            if (user != null) { user.Password = newPassword; return true; }
+            if (user != null)
+            {
+                user.Password = newPassword;
+                SaveUsers();
+                Console.WriteLine($"✅ Password changed for user '{username}'");
+                return true;
+            }
+
+            Console.WriteLine($"❌ User '{username}' not found");
             return false;
         }
 
-        public void SetUserLanguage(string username, string language) => userLanguages[username] = language;
-        public string GetUserLanguage(string username) => userLanguages.ContainsKey(username) ? userLanguages[username] : null;
-        public List<User> GetAllUsers() => new List<User>(users);
-        public int GetUserCount() => users.Count;
-        public int GetActiveSessionsCount() => activeSessions.Count;
-        public UserSession GetUserSession(string username) => activeSessions.ContainsKey(username) ? activeSessions[username] : null;
+        public void SetUserLanguage(string username, string language)
+        {
+            userLanguages[username] = language;
+            Console.WriteLine($"🌐 Language set to '{language}' for user '{username}'");
+        }
+
+        public string GetUserLanguage(string username)
+        {
+            return userLanguages.ContainsKey(username) ? userLanguages[username] : null;
+        }
+
+        public List<User> GetAllUsers()
+        {
+            return new List<User>(users);
+        }
+
+        public int GetUserCount()
+        {
+            return users.Count;
+        }
+
+        public int GetActiveSessionsCount()
+        {
+            return activeSessions.Count;
+        }
+
+        public UserSession GetUserSession(string username)
+        {
+            return activeSessions.ContainsKey(username) ? activeSessions[username] : null;
+        }
+
+        public bool DeleteUser(string username)
+        {
+            var user = users.FirstOrDefault(u => u.Username == username);
+            if (user != null)
+            {
+                users.Remove(user);
+                if (activeSessions.ContainsKey(username))
+                    activeSessions.Remove(username);
+
+                SaveUsers();
+                Console.WriteLine($"✅ User '{username}' deleted successfully");
+                return true;
+            }
+
+            Console.WriteLine($"❌ User '{username}' not found");
+            return false;
+        }
+
+        public bool DeactivateUser(string username)
+        {
+            var user = users.FirstOrDefault(u => u.Username == username);
+            if (user != null)
+            {
+                user.IsActive = false;
+                if (activeSessions.ContainsKey(username))
+                    activeSessions.Remove(username);
+
+                SaveUsers();
+                Console.WriteLine($"✅ User '{username}' deactivated");
+                return true;
+            }
+
+            Console.WriteLine($"❌ User '{username}' not found");
+            return false;
+        }
+
+        public bool ActivateUser(string username)
+        {
+            var user = users.FirstOrDefault(u => u.Username == username);
+            if (user != null)
+            {
+                user.IsActive = true;
+                SaveUsers();
+                Console.WriteLine($"✅ User '{username}' activated");
+                return true;
+            }
+
+            Console.WriteLine($"❌ User '{username}' not found");
+            return false;
+        }
+
+        public void ListAllUsers()
+        {
+            Console.WriteLine("👥 All Users:");
+            Console.WriteLine("Username    | Type       | Status   | Last Login");
+            Console.WriteLine("------------|------------|----------|------------");
+
+            foreach (var user in users)
+            {
+                string status = user.IsActive ? "Active" : "Inactive";
+                string lastLogin = user.LastLogin.ToString("yyyy-MM-dd HH:mm");
+                Console.WriteLine($"{user.Username,-11} | {user.UserType,-10} | {status,-8} | {lastLogin}");
+            }
+        }
+
+        public void CreateHomeDirectory(string username)
+        {
+            try
+            {
+                string homePath = Path.Combine(systemRoot, "home", username);
+                if (!Directory.Exists(homePath))
+                {
+                    Directory.CreateDirectory(homePath);
+                    Console.WriteLine($"📁 Created home directory for '{username}': {homePath}");
+
+                    // Создаем базовые файлы
+                    string welcomeFile = Path.Combine(homePath, "welcome.txt");
+                    File.WriteAllText(welcomeFile, $"Welcome to your home directory, {username}!\nThis is your personal space in SimpleOS v3.8.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error creating home directory for '{username}': {ex.Message}");
+            }
+        }
+
+        public void UpdateUserLastActivity(string username)
+        {
+            var session = GetUserSession(username);
+            if (session != null)
+            {
+                session.LastActivity = DateTime.Now;
+            }
+        }
+
+        public void CleanupInactiveSessions(TimeSpan maxInactivity)
+        {
+            var inactiveSessions = activeSessions
+                .Where(s => DateTime.Now - s.Value.LastActivity > maxInactivity)
+                .ToList();
+
+            foreach (var session in inactiveSessions)
+            {
+                Console.WriteLine($"🕒 Ending inactive session for: {session.Key}");
+                activeSessions.Remove(session.Key);
+            }
+
+            if (inactiveSessions.Count > 0)
+            {
+                Console.WriteLine($"✅ Cleaned up {inactiveSessions.Count} inactive sessions");
+            }
+        }
+
+        public Dictionary<string, int> GetUserStatistics()
+        {
+            return new Dictionary<string, int>
+            {
+                ["TotalUsers"] = users.Count,
+                ["ActiveUsers"] = users.Count(u => u.IsActive),
+                ["ActiveSessions"] = activeSessions.Count,
+                ["AdminUsers"] = users.Count(u => u.UserType == UserType.Admin),
+                ["DeveloperUsers"] = users.Count(u => u.UserType == UserType.Developer),
+                ["OperatorUsers"] = users.Count(u => u.UserType == UserType.Operator),
+                ["RegularUsers"] = users.Count(u => u.UserType == UserType.User)
+            };
+        }
+
+        public void DisplayUserStatistics()
+        {
+            var stats = GetUserStatistics();
+            Console.WriteLine("📊 User Statistics:");
+            Console.WriteLine($"   Total Users: {stats["TotalUsers"]}");
+            Console.WriteLine($"   Active Users: {stats["ActiveUsers"]}");
+            Console.WriteLine($"   Active Sessions: {stats["ActiveSessions"]}");
+            Console.WriteLine($"   Administrators: {stats["AdminUsers"]}");
+            Console.WriteLine($"   Developers: {stats["DeveloperUsers"]}");
+            Console.WriteLine($"   Operators: {stats["OperatorUsers"]}");
+            Console.WriteLine($"   Regular Users: {stats["RegularUsers"]}");
+        }
     }
 
     public class UserSession
@@ -472,12 +733,12 @@ namespace SimpleOS
     public class AIAssistant
     {
         private Dictionary<string, string> knowledgeBase;
-        
+
         public AIAssistant()
         {
             InitializeKnowledgeBase();
         }
-        
+
         private void InitializeKnowledgeBase()
         {
             knowledgeBase = new Dictionary<string, string>
@@ -490,20 +751,20 @@ namespace SimpleOS
                 ["cloud"] = "Cloud sync automatically backs up your files and enables cross-device synchronization."
             };
         }
-        
+
         public string ProcessCommand(string command, string[] args)
         {
             try
             {
                 if (args.Length == 0) return knowledgeBase["help"];
-                
+
                 string subcommand = args[0].ToLower();
-                
+
                 switch (subcommand)
                 {
                     case "help":
                         return knowledgeBase["help"];
-                        
+
                     case "code":
                         if (args.Length >= 3)
                         {
@@ -512,7 +773,7 @@ namespace SimpleOS
                             return GenerateCode(language, task);
                         }
                         return "Usage: ai code <language> <task>";
-                        
+
                     case "explain":
                         if (args.Length >= 2)
                         {
@@ -520,7 +781,7 @@ namespace SimpleOS
                             return ExplainTopic(topic);
                         }
                         return "Usage: ai explain <topic>";
-                        
+
                     case "search":
                         if (args.Length >= 2)
                         {
@@ -528,7 +789,7 @@ namespace SimpleOS
                             return SearchKnowledge(query);
                         }
                         return "Usage: ai search <query>";
-                        
+
                     case "translate":
                         if (args.Length >= 3)
                         {
@@ -537,7 +798,7 @@ namespace SimpleOS
                             return TranslateText(text, targetLang);
                         }
                         return "Usage: ai translate <text> <language>";
-                        
+
                     default:
                         return $"Unknown AI command: {subcommand}. Type 'ai help' for available commands.";
                 }
@@ -547,7 +808,7 @@ namespace SimpleOS
                 return $"AI Error: {ex.Message}";
             }
         }
-        
+
         private string GenerateCode(string language, string task)
         {
             var templates = new Dictionary<string, string>
@@ -557,31 +818,31 @@ namespace SimpleOS
                 ["csharp"] = $"// {task}\nusing System;\n\nclass Program {{\n    static void Main() {{\n        // TODO: Implement {task}\n    }}\n}}",
                 ["java"] = $"// {task}\npublic class Solution {{\n    public static void main(String[] args) {{\n        // TODO: Implement {task}\n    }}\n}}"
             };
-            
-            return templates.ContainsKey(language.ToLower()) 
-                ? templates[language.ToLower()] 
+
+            return templates.ContainsKey(language.ToLower())
+                ? templates[language.ToLower()]
                 : $"Unsupported language: {language}. Supported: {string.Join(", ", templates.Keys)}";
         }
-        
+
         private string ExplainTopic(string topic)
         {
-            return knowledgeBase.ContainsKey(topic.ToLower()) 
-                ? knowledgeBase[topic.ToLower()] 
+            return knowledgeBase.ContainsKey(topic.ToLower())
+                ? knowledgeBase[topic.ToLower()]
                 : $"I don't have information about '{topic}'. Try: kernel, filesystem, network, docker, cloud";
         }
-        
+
         private string SearchKnowledge(string query)
         {
             var results = knowledgeBase
                 .Where(k => k.Value.Contains(query, StringComparison.OrdinalIgnoreCase))
                 .Select(k => $"{k.Key}: {k.Value}")
                 .ToList();
-                
-            return results.Count > 0 
-                ? string.Join("\n", results.Take(3)) 
+
+            return results.Count > 0
+                ? string.Join("\n", results.Take(3))
                 : $"No results found for '{query}'";
         }
-        
+
         private string TranslateText(string text, string targetLang)
         {
             var translations = new Dictionary<string, Dictionary<string, string>>
@@ -589,13 +850,13 @@ namespace SimpleOS
                 ["hello"] = new Dictionary<string, string> { ["es"] = "hola", ["fr"] = "bonjour", ["de"] = "hallo" },
                 ["world"] = new Dictionary<string, string> { ["es"] = "mundo", ["fr"] = "monde", ["de"] = "welt" }
             };
-            
+
             if (translations.ContainsKey(text.ToLower()) && translations[text.ToLower()].ContainsKey(targetLang))
                 return translations[text.ToLower()][targetLang];
-                
+
             return $"Translation not available for '{text}' to {targetLang}";
         }
-        
+
         public void Learn(string topic, string information)
         {
             knowledgeBase[topic.ToLower()] = information;
@@ -606,32 +867,32 @@ namespace SimpleOS
     {
         private Dictionary<string, CloudFile> cloudFiles;
         private string syncDirectory;
-        
+
         public CloudSyncManager(string systemRoot)
         {
             syncDirectory = Path.Combine(systemRoot, "cloud_sync");
             cloudFiles = new Dictionary<string, CloudFile>();
             InitializeCloudStorage();
         }
-        
+
         private void InitializeCloudStorage()
         {
             Directory.CreateDirectory(syncDirectory);
-            
-            cloudFiles["/documents/readme.txt"] = new CloudFile 
-            { 
-                Path = "/documents/readme.txt", 
-                Content = "Cloud-synced document", 
+
+            cloudFiles["/documents/readme.txt"] = new CloudFile
+            {
+                Path = "/documents/readme.txt",
+                Content = "Cloud-synced document",
                 Version = 1,
                 LastModified = DateTime.Now,
                 Size = 1024
             };
         }
-        
+
         public void SyncFile(string localPath, string cloudPath)
         {
             Console.WriteLine($"☁️ Syncing {localPath} -> {cloudPath}");
-            
+
             if (File.Exists(localPath))
             {
                 var content = File.ReadAllText(localPath);
@@ -643,24 +904,24 @@ namespace SimpleOS
                     LastModified = DateTime.Now,
                     Size = content.Length
                 };
-                
+
                 cloudFiles[cloudPath] = cloudFile;
                 SaveCloudFile(cloudFile);
-                
+
                 Console.WriteLine($"✅ Synced version {cloudFile.Version}");
             }
         }
-        
+
         public CloudFile GetCloudFile(string cloudPath)
         {
             return cloudFiles.ContainsKey(cloudPath) ? cloudFiles[cloudPath] : null;
         }
-        
+
         public List<CloudFile> GetCloudFiles()
         {
             return cloudFiles.Values.ToList();
         }
-        
+
         private void SaveCloudFile(CloudFile cloudFile)
         {
             string filePath = Path.Combine(syncDirectory, cloudFile.Path.TrimStart('/').Replace('/', '_'));
@@ -682,36 +943,36 @@ namespace SimpleOS
     public class VirtualMachineManager
     {
         private List<VirtualMachine> vms;
-        
+
         public VirtualMachineManager()
         {
             vms = new List<VirtualMachine>();
             InitializeDefaultVMs();
         }
-        
+
         private void InitializeDefaultVMs()
         {
-            vms.Add(new VirtualMachine 
-            { 
-                Id = "dev-ubuntu", 
-                Name = "Ubuntu Dev", 
-                OS = "Ubuntu 22.04", 
+            vms.Add(new VirtualMachine
+            {
+                Id = "dev-ubuntu",
+                Name = "Ubuntu Dev",
+                OS = "Ubuntu 22.04",
                 Status = "Stopped",
                 MemoryMB = 2048,
                 StorageGB = 20
             });
-            
-            vms.Add(new VirtualMachine 
-            { 
-                Id = "win-test", 
-                Name = "Windows Test", 
-                OS = "Windows 11", 
+
+            vms.Add(new VirtualMachine
+            {
+                Id = "win-test",
+                Name = "Windows Test",
+                OS = "Windows 11",
                 Status = "Stopped",
                 MemoryMB = 4096,
                 StorageGB = 40
             });
         }
-        
+
         public VirtualMachine StartVM(string vmId)
         {
             var vm = vms.FirstOrDefault(v => v.Id == vmId);
@@ -723,7 +984,7 @@ namespace SimpleOS
             }
             return vm;
         }
-        
+
         public VirtualMachine StopVM(string vmId)
         {
             var vm = vms.FirstOrDefault(v => v.Id == vmId);
@@ -734,7 +995,7 @@ namespace SimpleOS
             }
             return vm;
         }
-        
+
         public List<VirtualMachine> GetVMs() => vms;
         public VirtualMachine CreateVM(string name, string os, int memoryMB, int storageGB)
         {
@@ -747,7 +1008,7 @@ namespace SimpleOS
                 MemoryMB = memoryMB,
                 StorageGB = storageGB
             };
-            
+
             vms.Add(vm);
             return vm;
         }
@@ -786,13 +1047,13 @@ namespace SimpleOS
         }
 
         public bool IsApplication(string command) => applications.ContainsKey(command.ToLower());
-        
+
         public void RunApplication(string appName, string[] args)
         {
             if (applications.TryGetValue(appName.ToLower(), out Application app))
             {
                 Console.WriteLine($"🚀 Starting {app.Name}...");
-                
+
                 switch (app.Command)
                 {
                     case "run_browser":
@@ -821,7 +1082,7 @@ namespace SimpleOS
                         break;
                 }
             }
-            else 
+            else
             {
                 Console.WriteLine($"Application '{appName}' not found");
             }
@@ -1006,18 +1267,18 @@ namespace SimpleOS
     {
         private Dictionary<string, CachedFile> fileCache;
         private CacheStatistics statistics;
-        
+
         public CacheManager()
         {
             fileCache = new Dictionary<string, CachedFile>();
             statistics = new CacheStatistics();
         }
-        
-        public void InitializeUserCache(string username) 
+
+        public void InitializeUserCache(string username)
         {
             Console.WriteLine($"📦 Initialized AI-optimized cache for user: {username}");
         }
-        
+
         public string ComputeFileHash(string filePath, string content)
         {
             using var sha256 = SHA256.Create();
@@ -1025,11 +1286,11 @@ namespace SimpleOS
             byte[] hashBytes = sha256.ComputeHash(inputBytes);
             return Convert.ToBase64String(hashBytes);
         }
-        
+
         public void CacheFile(string filePath, string content)
         {
             var stopwatch = Stopwatch.StartNew();
-            
+
             var cachedFile = new CachedFile
             {
                 FilePath = filePath,
@@ -1040,16 +1301,16 @@ namespace SimpleOS
                 AccessCount = 1,
                 CompressionRatio = 0.8
             };
-            
+
             fileCache[filePath] = cachedFile;
             statistics.TotalFiles++;
             statistics.TotalSize += content.Length;
             statistics.Hits++;
-            
+
             stopwatch.Stop();
             Console.WriteLine($"⚡ File cached in {stopwatch.ElapsedMilliseconds}ms");
         }
-        
+
         public CachedFile GetCachedFile(string filePath)
         {
             if (fileCache.TryGetValue(filePath, out CachedFile cachedFile))
@@ -1057,42 +1318,42 @@ namespace SimpleOS
                 cachedFile.LastAccessed = DateTime.Now;
                 cachedFile.AccessCount++;
                 statistics.Hits++;
-                
+
                 if (cachedFile.AccessCount > 5)
                     Console.WriteLine("🤖 AI: This file is frequently accessed");
-                    
+
                 return cachedFile;
             }
             statistics.Misses++;
             return null;
         }
-        
-        public void ClearCache() 
+
+        public void ClearCache()
         {
             int fileCount = fileCache.Count;
             long totalSize = statistics.TotalSize;
-            
+
             fileCache.Clear();
             statistics = new CacheStatistics();
-            
+
             Console.WriteLine($"🗑️  AI Cache cleared: {fileCount} files, {totalSize} bytes freed");
             Console.WriteLine("🤖 AI: Cache optimization completed");
         }
-        
+
         public void OptimizeCache()
         {
             Console.WriteLine("🤖 AI: Analyzing cache patterns...");
-            var oldFiles = fileCache.Where(f => 
+            var oldFiles = fileCache.Where(f =>
                 (DateTime.Now - f.Value.LastAccessed).TotalHours > 24).ToList();
-                
+
             foreach (var file in oldFiles)
             {
                 fileCache.Remove(file.Key);
             }
-            
+
             Console.WriteLine($"✅ AI: Removed {oldFiles.Count} inactive files");
         }
-        
+
         public List<CachedFile> GetCachedFiles() => fileCache.Values.ToList();
         public CacheStatistics GetCacheStatistics() => statistics;
     }
@@ -1128,7 +1389,7 @@ namespace SimpleOS
         private List<NetworkInterface> interfaces;
         private List<NetworkConnection> connections;
         private NetworkStatistics statistics;
-        
+
         public NetworkManager()
         {
             interfaces = new List<NetworkInterface>();
@@ -1136,67 +1397,74 @@ namespace SimpleOS
             statistics = new NetworkStatistics();
             InitializeNetwork();
         }
-        
+
         private void InitializeNetwork()
         {
-            interfaces.Add(new NetworkInterface { 
-                Name = "lo0", 
-                IP = "127.0.0.1", 
-                Status = "UP", 
+            interfaces.Add(new NetworkInterface
+            {
+                Name = "lo0",
+                IP = "127.0.0.1",
+                Status = "UP",
                 Speed = "10Gbps",
                 AIOptimized = true
             });
-            interfaces.Add(new NetworkInterface { 
-                Name = "eth0", 
-                IP = "192.168.1.100", 
-                Status = "UP", 
+            interfaces.Add(new NetworkInterface
+            {
+                Name = "eth0",
+                IP = "192.168.1.100",
+                Status = "UP",
                 Speed = "1Gbps",
                 AIOptimized = false
             });
-            interfaces.Add(new NetworkInterface { 
-                Name = "wlan0", 
-                IP = "192.168.1.101", 
-                Status = "UP", 
+            interfaces.Add(new NetworkInterface
+            {
+                Name = "wlan0",
+                IP = "192.168.1.101",
+                Status = "UP",
                 Speed = "300Mbps",
                 AIOptimized = true
             });
-            interfaces.Add(new NetworkInterface { 
-                Name = "quantum0", 
-                IP = "10.0.0.1", 
-                Status = "UP", 
+            interfaces.Add(new NetworkInterface
+            {
+                Name = "quantum0",
+                IP = "10.0.0.1",
+                Status = "UP",
                 Speed = "100Gbps",
                 AIOptimized = true
             });
-            
-            connections.Add(new NetworkConnection { 
-                Protocol = "TCP", 
-                Local = "127.0.0.1:22", 
-                Remote = "0.0.0.0:0", 
+
+            connections.Add(new NetworkConnection
+            {
+                Protocol = "TCP",
+                Local = "127.0.0.1:22",
+                Remote = "0.0.0.0:0",
                 State = "LISTEN",
                 AIPriority = "high"
             });
-            connections.Add(new NetworkConnection { 
-                Protocol = "TCP", 
-                Local = "192.168.1.100:443", 
-                Remote = "93.184.216.34:12345", 
+            connections.Add(new NetworkConnection
+            {
+                Protocol = "TCP",
+                Local = "192.168.1.100:443",
+                Remote = "93.184.216.34:12345",
                 State = "ESTABLISHED",
                 AIPriority = "medium"
             });
-            connections.Add(new NetworkConnection { 
-                Protocol = "QUANTUM", 
-                Local = "10.0.0.1:8080", 
-                Remote = "cloud.simpleos.ai:443", 
+            connections.Add(new NetworkConnection
+            {
+                Protocol = "QUANTUM",
+                Local = "10.0.0.1:8080",
+                Remote = "cloud.simpleos.ai:443",
                 State = "ENCRYPTED",
                 AIPriority = "critical"
             });
         }
-        
+
         public string Status => "AI-Optimized";
-        
+
         public List<NetworkInterface> GetNetworkInterfaces() => interfaces;
-        
+
         public List<NetworkConnection> GetActiveConnections() => connections;
-        
+
         public void OptimizeNetwork()
         {
             Console.WriteLine("🤖 AI: Analyzing network traffic...");
@@ -1204,9 +1472,9 @@ namespace SimpleOS
             Console.WriteLine("✅ Network AI optimization complete");
             statistics.Optimizations++;
         }
-        
+
         public NetworkStatistics GetStatistics() => statistics;
-        
+
         public void TestConnectivity(string host)
         {
             Console.WriteLine($"🌐 Testing connectivity to {host}...");
@@ -1230,7 +1498,7 @@ namespace SimpleOS
         private string packagesPath;
         private List<Package> installedPackages;
         private Dictionary<string, Package> availablePackages;
-        
+
         public PackageManager(string systemRoot)
         {
             packagesPath = Path.Combine(systemRoot, "var", "lib", "packages");
@@ -1238,63 +1506,70 @@ namespace SimpleOS
             InitializeAvailablePackages();
             LoadPackages();
         }
-        
+
         private void InitializeAvailablePackages()
         {
             availablePackages = new Dictionary<string, Package>
             {
-                ["git"] = new Package { 
-                    Name = "git", 
-                    Version = "2.34.1", 
-                    Description = "Distributed version control system", 
+                ["git"] = new Package
+                {
+                    Name = "git",
+                    Version = "2.34.1",
+                    Description = "Distributed version control system",
                     Size = 20480,
                     AIScore = 95
                 },
-                ["python"] = new Package { 
-                    Name = "python", 
-                    Version = "3.9.7", 
-                    Description = "Python programming language", 
+                ["python"] = new Package
+                {
+                    Name = "python",
+                    Version = "3.9.7",
+                    Description = "Python programming language",
                     Size = 40960,
                     AIScore = 98
                 },
-                ["nodejs"] = new Package { 
-                    Name = "nodejs", 
-                    Version = "16.13.0", 
-                    Description = "JavaScript runtime", 
+                ["nodejs"] = new Package
+                {
+                    Name = "nodejs",
+                    Version = "16.13.0",
+                    Description = "JavaScript runtime",
                     Size = 30720,
                     AIScore = 92
                 },
-                ["nginx"] = new Package { 
-                    Name = "nginx", 
-                    Version = "1.21.3", 
-                    Description = "Web server", 
+                ["nginx"] = new Package
+                {
+                    Name = "nginx",
+                    Version = "1.21.3",
+                    Description = "Web server",
                     Size = 15360,
                     AIScore = 88
                 },
-                ["mysql"] = new Package { 
-                    Name = "mysql", 
-                    Version = "8.0.27", 
-                    Description = "Database server", 
+                ["mysql"] = new Package
+                {
+                    Name = "mysql",
+                    Version = "8.0.27",
+                    Description = "Database server",
                     Size = 81920,
                     AIScore = 90
                 },
-                ["docker"] = new Package { 
-                    Name = "docker", 
-                    Version = "20.10.8", 
-                    Description = "Container platform", 
+                ["docker"] = new Package
+                {
+                    Name = "docker",
+                    Version = "20.10.8",
+                    Description = "Container platform",
                     Size = 102400,
                     AIScore = 96
                 },
-                ["ai-toolkit"] = new Package { 
-                    Name = "ai-toolkit", 
-                    Version = "1.0.0", 
-                    Description = "AI development tools", 
+                ["ai-toolkit"] = new Package
+                {
+                    Name = "ai-toolkit",
+                    Version = "1.0.0",
+                    Description = "AI development tools",
                     Size = 51200,
                     AIScore = 99
                 }
             };
         }
-        
+
         public bool InstallPackage(string name)
         {
             if (availablePackages.TryGetValue(name, out Package package))
@@ -1310,10 +1585,10 @@ namespace SimpleOS
                         Size = package.Size,
                         AIScore = package.AIScore
                     };
-                    
+
                     installedPackages.Add(installedPackage);
                     SavePackages();
-                    
+
                     Console.WriteLine($"📦 Installing {name} ({package.Version})...");
                     SimulateInstallationProgress();
                     Console.WriteLine($"✅ {name} installed successfully ({package.Size} bytes)");
@@ -1332,7 +1607,7 @@ namespace SimpleOS
                 return false;
             }
         }
-        
+
         public bool RemovePackage(string name)
         {
             var package = installedPackages.FirstOrDefault(p => p.Name == name);
@@ -1348,49 +1623,49 @@ namespace SimpleOS
             Console.WriteLine($"❌ Package {name} is not installed");
             return false;
         }
-        
+
         public List<Package> GetInstalledPackages() => installedPackages;
-        
+
         public List<Package> GetAvailablePackages() => availablePackages.Values.ToList();
-        
+
         public void SearchPackages(string query)
         {
             var results = availablePackages.Values
-                .Where(p => p.Name.Contains(query, StringComparison.OrdinalIgnoreCase) || 
+                .Where(p => p.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
                            p.Description.Contains(query, StringComparison.OrdinalIgnoreCase))
                 .ToList();
-            
+
             Console.WriteLine($"🔍 Search results for '{query}':");
             foreach (var pkg in results)
             {
                 Console.WriteLine($"  {pkg.Name} ({pkg.Version}) - {pkg.Description} [AI:{pkg.AIScore}]");
             }
         }
-        
+
         public void AISuggestions()
         {
             var suggestions = availablePackages.Values
                 .Where(p => p.AIScore > 90 && !installedPackages.Any(ip => ip.Name == p.Name))
                 .OrderByDescending(p => p.AIScore)
                 .Take(3);
-                
+
             Console.WriteLine("🤖 AI Package Suggestions:");
             foreach (var pkg in suggestions)
             {
                 Console.WriteLine($"  📦 {pkg.Name} - {pkg.Description} (Score: {pkg.AIScore})");
             }
         }
-        
+
         private void SimulateInstallationProgress()
         {
             for (int i = 0; i <= 100; i += 10)
             {
-                Console.Write($"\rProgress: [{new string('█', i/10)}{new string('░', 10 - i/10)}] {i}%");
+                Console.Write($"\rProgress: [{new string('█', i / 10)}{new string('░', 10 - i / 10)}] {i}%");
                 Thread.Sleep(200);
             }
             Console.WriteLine();
         }
-        
+
         private void LoadPackages()
         {
             try
@@ -1402,12 +1677,12 @@ namespace SimpleOS
                     installedPackages = JsonSerializer.Deserialize<List<Package>>(json) ?? new List<Package>();
                 }
             }
-            catch 
+            catch
             {
                 installedPackages = new List<Package>();
             }
         }
-        
+
         private void SavePackages()
         {
             try
@@ -1417,7 +1692,7 @@ namespace SimpleOS
                 string json = JsonSerializer.Serialize(installedPackages, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(filePath, json);
             }
-            catch 
+            catch
             {
                 Console.WriteLine("⚠️  Warning: Could not save package database");
             }
@@ -1439,28 +1714,28 @@ namespace SimpleOS
     {
         private List<BackgroundJob> jobs;
         private int nextJobId = 1;
-        
+
         public BackgroundJobManager() => jobs = new List<BackgroundJob>();
-        
+
         public BackgroundJob StartJob(string command)
         {
-            var job = new BackgroundJob 
-            { 
-                Id = nextJobId++, 
-                Command = command, 
-                StartTime = DateTime.Now, 
+            var job = new BackgroundJob
+            {
+                Id = nextJobId++,
+                Command = command,
+                StartTime = DateTime.Now,
                 Status = "Running",
                 Progress = 0,
                 AIStatus = "AI Optimized"
             };
-            
+
             job.Thread = new Thread(() => ExecuteBackgroundJob(job));
             job.Thread.Start();
-            
+
             jobs.Add(job);
             return job;
         }
-        
+
         private void ExecuteBackgroundJob(BackgroundJob job)
         {
             try
@@ -1468,12 +1743,12 @@ namespace SimpleOS
                 for (int i = 0; i <= 100; i += 10)
                 {
                     if (job.Status == "Terminated") break;
-                    
+
                     job.Progress = i;
                     job.AIStatus = i < 50 ? "Analyzing" : "Processing";
                     Thread.Sleep(1000);
                 }
-                
+
                 job.Status = job.Status == "Terminated" ? "Terminated" : "Completed";
                 job.AIStatus = "Completed";
             }
@@ -1483,7 +1758,7 @@ namespace SimpleOS
                 job.AIStatus = "Error";
             }
         }
-        
+
         public bool KillJob(int jobId)
         {
             var job = jobs.FirstOrDefault(j => j.Id == jobId);
@@ -1495,11 +1770,11 @@ namespace SimpleOS
             }
             return false;
         }
-        
+
         public BackgroundJob GetJob(int jobId) => jobs.FirstOrDefault(j => j.Id == jobId);
         public List<BackgroundJob> GetJobs() => jobs;
         public void RemoveJob(int jobId) => jobs.RemoveAll(j => j.Id == jobId);
-        
+
         public void AIOptimizeJobs()
         {
             Console.WriteLine("🤖 AI: Optimizing background jobs...");
@@ -1521,16 +1796,16 @@ namespace SimpleOS
                 var content = File.ReadAllBytes(filePath);
                 var key = DeriveKey(password, 32);
                 var iv = GenerateRandomBytes(16);
-                
+
                 for (int i = 0; i < content.Length; i++)
                 {
                     content[i] ^= key[i % key.Length];
                 }
-                
+
                 var result = new byte[iv.Length + content.Length];
                 Buffer.BlockCopy(iv, 0, result, 0, iv.Length);
                 Buffer.BlockCopy(content, 0, result, iv.Length, content.Length);
-                
+
                 File.WriteAllBytes(filePath + ".enc", result);
                 Console.WriteLine($"🔐 File encrypted: {filePath}.enc");
                 Console.WriteLine("🤖 AI: Encryption strength: Quantum Grade");
@@ -1540,7 +1815,7 @@ namespace SimpleOS
                 Console.WriteLine($"❌ Encryption failed: {ex.Message}");
             }
         }
-        
+
         public bool DecryptFile(string filePath, string password)
         {
             try
@@ -1550,26 +1825,26 @@ namespace SimpleOS
                     Console.WriteLine("❌ File must have .enc extension");
                     return false;
                 }
-                
+
                 var encryptedData = File.ReadAllBytes(filePath);
                 if (encryptedData.Length < 16)
                 {
                     Console.WriteLine("❌ Invalid encrypted file");
                     return false;
                 }
-                
+
                 var iv = new byte[16];
                 var content = new byte[encryptedData.Length - 16];
                 Buffer.BlockCopy(encryptedData, 0, iv, 0, 16);
                 Buffer.BlockCopy(encryptedData, 16, content, 0, content.Length);
-                
+
                 var key = DeriveKey(password, 32);
-                
+
                 for (int i = 0; i < content.Length; i++)
                 {
                     content[i] ^= key[i % key.Length];
                 }
-                
+
                 string outputPath = filePath.Replace(".enc", ".dec");
                 File.WriteAllBytes(outputPath, content);
                 Console.WriteLine($"🔓 File decrypted: {outputPath}");
@@ -1582,13 +1857,13 @@ namespace SimpleOS
                 return false;
             }
         }
-        
+
         private byte[] DeriveKey(string password, int length)
         {
             using var sha256 = SHA256.Create();
             var key = new byte[length];
             var passwordBytes = Encoding.UTF8.GetBytes(password);
-            
+
             for (int i = 0; i < length; i++)
             {
                 var input = new byte[passwordBytes.Length + 1];
@@ -1597,10 +1872,10 @@ namespace SimpleOS
                 var hash = sha256.ComputeHash(input);
                 key[i] = hash[0];
             }
-            
+
             return key;
         }
-        
+
         private byte[] GenerateRandomBytes(int length)
         {
             var bytes = new byte[length];
@@ -1608,7 +1883,7 @@ namespace SimpleOS
             rng.GetBytes(bytes);
             return bytes;
         }
-        
+
         public void AIAnalyzeSecurity()
         {
             Console.WriteLine("🤖 AI: Analyzing encryption security...");
@@ -1647,7 +1922,7 @@ namespace SimpleOS
         {
             var process = Process.GetCurrentProcess();
             var drive = new DriveInfo(Path.GetPathRoot(Environment.CurrentDirectory));
-            
+
             return new SystemInfo
             {
                 MemoryUsage = process.WorkingSet64,
@@ -1660,7 +1935,7 @@ namespace SimpleOS
                 AIProcesses = 3
             };
         }
-        
+
         public List<ProcessInfo> GetRunningProcesses()
         {
             return new List<ProcessInfo>
@@ -1673,7 +1948,7 @@ namespace SimpleOS
                 new ProcessInfo { PID = 6, Name = "cloud-sync", CPU = 0.8, Memory = 12288, Status = "Running", AIType = "AI-Managed" }
             };
         }
-        
+
         public void AIDiagnostics()
         {
             Console.WriteLine("🤖 AI System Diagnostics:");
@@ -1700,19 +1975,19 @@ namespace SimpleOS
     {
         private Stopwatch stopwatch;
         private DateTime startTime;
-        
+
         public PerformanceMonitor()
         {
             stopwatch = new Stopwatch();
             stopwatch.Start();
             startTime = DateTime.Now;
         }
-        
+
         public PerformanceMetrics GetMetrics()
         {
             var process = Process.GetCurrentProcess();
             var random = new Random();
-            
+
             return new PerformanceMetrics
             {
                 ResponseTime = stopwatch.ElapsedMilliseconds % 100,
@@ -1724,7 +1999,7 @@ namespace SimpleOS
                 AIOptimizations = random.Next(5, 20)
             };
         }
-        
+
         public void AIOptimizePerformance()
         {
             Console.WriteLine("🤖 AI: Optimizing system performance...");
@@ -1752,7 +2027,7 @@ namespace SimpleOS
         private CloudSyncManager cloudSync;
         private VirtualMachineManager vmManager;
         private PerformanceMonitor performanceMonitor;
-        
+
         private string currentLanguage = "en";
         private User currentUser;
         private string currentDirectory = "/";
@@ -1771,7 +2046,7 @@ namespace SimpleOS
         {
             console = new ConsoleDriver();
             systemRoot = Path.Combine(Directory.GetCurrentDirectory(), "simpleos_root");
-            
+
             console.Clear();
             console.WriteLine("=== SimpleOS Boot Sequence v3.8 Quantum Edition ===");
             console.WriteLine("Initializing quantum hardware... OK");
@@ -1808,6 +2083,7 @@ namespace SimpleOS
             InitializeEnvironment();
             console.WriteLine("Quantum system ready!\n");
             Login();
+            FixUsers();
         }
 
         private void InitializeEnvironment()
@@ -1832,7 +2108,7 @@ namespace SimpleOS
         private void Login()
         {
             console.WriteLine("=== SimpleOS Quantum Login ===");
-            
+
             int attempts = 0;
             while (attempts < 3)
             {
@@ -1847,24 +2123,24 @@ namespace SimpleOS
                     string userLang = userManager.GetUserLanguage(username);
                     if (!string.IsNullOrEmpty(userLang) && translation.IsLanguageSupported(userLang))
                         currentLanguage = userLang;
-                    
+
                     cacheManager.InitializeUserCache(username);
-                    
+
                     environment["USER"] = username;
                     environment["HOME"] = currentUser.HomeDirectory;
                     environment["LANG"] = currentLanguage;
                     currentDirectory = currentUser.HomeDirectory;
                     environment["PWD"] = currentDirectory;
-                    
+
                     console.WriteLine("\n" + translation.Translate("login_successful", currentLanguage, username));
                     ShowWelcomeMessage();
                     return;
                 }
-                
+
                 console.WriteLine("\n" + translation.Translate("login_failed", currentLanguage));
                 attempts++;
             }
-            
+
             console.WriteLine("Too many failed login attempts. System halted.");
             Environment.Exit(1);
         }
@@ -1873,11 +2149,11 @@ namespace SimpleOS
         {
             StringBuilder password = new StringBuilder();
             ConsoleKeyInfo key;
-            
+
             do
             {
                 key = Console.ReadKey(true);
-                
+
                 if (key.Key == ConsoleKey.Backspace && password.Length > 0)
                 {
                     password.Remove(password.Length - 1, 1);
@@ -1890,8 +2166,24 @@ namespace SimpleOS
                 }
             }
             while (key.Key != ConsoleKey.Enter);
-            
+
             return password.ToString();
+        }
+        private void FixUsers()
+        {
+            console.WriteLine("\n🔧 Fixing user database...");
+
+            // Принудительно пересоздаем пользователей
+            userManager = new UserManager(systemRoot);
+
+            // Создаем пользователя admin если его нет
+            if (!userManager.GetAllUsers().Any(u => u.Username == "admin"))
+            {
+                userManager.AddUser("admin", "admin123", UserType.Admin);
+                console.WriteLine("✅ Admin user created!");
+            }
+
+            console.WriteLine("👥 Current users: " + string.Join(", ", userManager.GetAllUsers().Select(u => u.Username)));
         }
 
         private void ShowWelcomeMessage()
@@ -1925,10 +2217,10 @@ namespace SimpleOS
                 {
                     ShowPrompt();
                     string input = console.ReadLine().Trim();
-                    
+
                     if (string.IsNullOrEmpty(input))
                         continue;
-                        
+
                     commandHistory.Add(input);
                     ProcessCommand(input);
                 }
@@ -2093,42 +2385,42 @@ namespace SimpleOS
             console.WriteLine("help, clear, exit, logout, shutdown, date, whoami");
             console.WriteLine("pwd, ls, cd, cat, echo, history");
             console.WriteLine("mkdir, touch, rm, cp, mv, grep, wc");
-            
+
             console.WriteLine("\n=== User Management ===");
             console.WriteLine("users, lang");
-            
+
             console.WriteLine("\n=== System Management ===");
             console.WriteLine("env, setenv, cache, clearcache, monitor, performance");
-            
+
             console.WriteLine("\n=== Network ===");
             console.WriteLine("network");
-            
+
             console.WriteLine("\n=== Package Management ===");
             console.WriteLine("packages list, packages install <name>, packages remove <name>");
             console.WriteLine("packages search <query>, packages available, packages upgrade");
             console.WriteLine("packages ai-suggest");
-            
+
             console.WriteLine("\n=== Background Jobs ===");
             console.WriteLine("jobs list, jobs start <command>, jobs kill <id>");
             console.WriteLine("jobs ai-optimize");
-            
+
             console.WriteLine("\n=== Security ===");
             console.WriteLine("encrypt <file> <password>, decrypt <file> <password>");
             console.WriteLine("crypto ai-analyze");
-            
+
             console.WriteLine("\n=== AI Assistant ===");
             console.WriteLine("ai help, ai code <lang> <task>, ai explain <topic>");
             console.WriteLine("ai search <query>, ai translate <text> <lang>");
-            
+
             console.WriteLine("\n=== Cloud Services ===");
             console.WriteLine("cloud sync, cloud status, cloud files");
-            
+
             console.WriteLine("\n=== Virtualization ===");
             console.WriteLine("vm list, vm start <id>, vm stop <id>, vm create <name> <os> <ram>");
-            
+
             console.WriteLine("\n=== Docker ===");
             console.WriteLine("docker ps, docker run, docker build");
-            
+
             console.WriteLine("\n=== Applications ===");
             var apps = appManager.GetAvailableApplications();
             foreach (var app in apps)
@@ -2142,19 +2434,19 @@ namespace SimpleOS
             try
             {
                 string realPath = GetRealPath(path);
-                
+
                 if (Directory.Exists(realPath))
                 {
                     var directories = Directory.GetDirectories(realPath);
                     var files = Directory.GetFiles(realPath);
-                    
+
                     console.WriteLine("Directories:");
                     foreach (var dir in directories)
                     {
                         string dirName = Path.GetFileName(dir);
                         console.WriteLine($"  📁 {dirName}");
                     }
-                    
+
                     console.WriteLine("\nFiles:");
                     foreach (var file in files)
                     {
@@ -2179,16 +2471,16 @@ namespace SimpleOS
             try
             {
                 string targetPath = path;
-                
+
                 if (path == "~")
                     targetPath = currentUser.HomeDirectory;
                 else if (path == "..")
                     targetPath = Path.GetDirectoryName(currentDirectory) ?? "/";
                 else if (!path.StartsWith("/"))
                     targetPath = Path.Combine(currentDirectory, path);
-                    
+
                 string realPath = GetRealPath(targetPath);
-                
+
                 if (Directory.Exists(realPath))
                 {
                     currentDirectory = fileSystem.GetVirtualPath(realPath);
@@ -2210,12 +2502,12 @@ namespace SimpleOS
             try
             {
                 string realPath = GetRealPath(filePath);
-                
+
                 if (File.Exists(realPath))
                 {
                     string content = File.ReadAllText(realPath);
                     console.WriteLine(content);
-                    
+
                     cacheManager.CacheFile(filePath, content);
                 }
                 else
@@ -2236,7 +2528,7 @@ namespace SimpleOS
                 console.WriteLine(translation.Translate("permission_denied", currentLanguage));
                 return;
             }
-            
+
             var users = userManager.GetAllUsers();
             console.WriteLine($"Registered users ({users.Count}):");
             foreach (var user in users)
@@ -2253,7 +2545,7 @@ namespace SimpleOS
                 console.WriteLine("Available languages: " + string.Join(", ", translation.GetSupportedLanguages()));
                 return;
             }
-            
+
             string newLang = args[0].ToLower();
             if (translation.IsLanguageSupported(newLang))
             {
@@ -2292,7 +2584,7 @@ namespace SimpleOS
                 console.WriteLine(translation.Translate("permission_denied", currentLanguage));
                 return;
             }
-            
+
             console.WriteLine("Shutting down SimpleOS...");
             for (int i = 3; i > 0; i--)
             {
@@ -2322,14 +2614,14 @@ namespace SimpleOS
         {
             var stats = cacheManager.GetCacheStatistics();
             var cachedFiles = cacheManager.GetCachedFiles();
-            
+
             console.WriteLine("=== Cache Statistics ===");
             console.WriteLine($"Total files: {stats.TotalFiles}");
             console.WriteLine($"Total size: {stats.TotalSize} bytes");
             console.WriteLine($"Hits: {stats.Hits}, Misses: {stats.Misses}");
             console.WriteLine($"Hit ratio: {stats.HitRatio:P2}");
             console.WriteLine($"AI Optimizations: {stats.AIOptimizations}");
-            
+
             if (cachedFiles.Count > 0)
             {
                 console.WriteLine("\nCached Files:");
@@ -2344,7 +2636,7 @@ namespace SimpleOS
         {
             console.WriteLine("=== Network Status ===");
             console.WriteLine($"Status: {networkManager.Status}");
-            
+
             console.WriteLine("\nNetwork Interfaces:");
             var interfaces = networkManager.GetNetworkInterfaces();
             foreach (var iface in interfaces)
@@ -2352,7 +2644,7 @@ namespace SimpleOS
                 string aiStatus = iface.AIOptimized ? " [AI]" : "";
                 console.WriteLine($"  {iface.Name}: {iface.IP} [{iface.Status}] {iface.Speed}{aiStatus}");
             }
-            
+
             console.WriteLine("\nActive Connections:");
             var connections = networkManager.GetActiveConnections();
             foreach (var conn in connections)
@@ -2370,7 +2662,7 @@ namespace SimpleOS
             }
 
             string subcommand = args[0].ToLower();
-            
+
             switch (subcommand)
             {
                 case "list":
@@ -2381,28 +2673,28 @@ namespace SimpleOS
                         console.WriteLine($"  {pkg.Name} ({pkg.Version}) - {pkg.Description} [AI:{pkg.AIScore}]");
                     }
                     break;
-                    
+
                 case "install":
                     if (args.Length >= 2)
                         packageManager.InstallPackage(args[1]);
                     else
                         console.WriteLine("Usage: packages install <package-name>");
                     break;
-                    
+
                 case "remove":
                     if (args.Length >= 2)
                         packageManager.RemovePackage(args[1]);
                     else
                         console.WriteLine("Usage: packages remove <package-name>");
                     break;
-                    
+
                 case "search":
                     if (args.Length >= 2)
                         packageManager.SearchPackages(args[1]);
                     else
                         console.WriteLine("Usage: packages search <query>");
                     break;
-                    
+
                 case "available":
                     var available = packageManager.GetAvailablePackages();
                     console.WriteLine("Available packages:");
@@ -2411,11 +2703,11 @@ namespace SimpleOS
                         console.WriteLine($"  {pkg.Name} ({pkg.Version}) - {pkg.Description} ({pkg.Size} bytes) [AI:{pkg.AIScore}]");
                     }
                     break;
-                    
+
                 case "ai-suggest":
                     packageManager.AISuggestions();
                     break;
-                    
+
                 default:
                     console.WriteLine($"Unknown package command: {subcommand}");
                     break;
@@ -2431,7 +2723,7 @@ namespace SimpleOS
             }
 
             string subcommand = args[0].ToLower();
-            
+
             switch (subcommand)
             {
                 case "list":
@@ -2442,7 +2734,7 @@ namespace SimpleOS
                         console.WriteLine($"  [{job.Id}] {job.Command} - {job.Status} ({job.Progress}%) [{job.AIStatus}]");
                     }
                     break;
-                    
+
                 case "start":
                     if (args.Length >= 2)
                     {
@@ -2455,7 +2747,7 @@ namespace SimpleOS
                         console.WriteLine("Usage: jobs start <command>");
                     }
                     break;
-                    
+
                 case "kill":
                     if (args.Length >= 2 && int.TryParse(args[1], out int jobId))
                     {
@@ -2469,11 +2761,11 @@ namespace SimpleOS
                         console.WriteLine("Usage: jobs kill <job-id>");
                     }
                     break;
-                    
+
                 case "ai-optimize":
                     jobManager.AIOptimizeJobs();
                     break;
-                    
+
                 default:
                     console.WriteLine($"Unknown jobs command: {subcommand}");
                     break;
@@ -2484,7 +2776,7 @@ namespace SimpleOS
         {
             var sysInfo = systemMonitor.GetSystemInfo();
             var processes = systemMonitor.GetRunningProcesses();
-            
+
             console.WriteLine("=== System Monitor ===");
             console.WriteLine($"Uptime: {sysInfo.Uptime:hh\\:mm\\:ss}");
             console.WriteLine($"Memory: {sysInfo.MemoryUsage / 1024 / 1024} MB / {sysInfo.TotalMemory / 1024 / 1024} MB");
@@ -2492,14 +2784,14 @@ namespace SimpleOS
             console.WriteLine($"Threads: {sysInfo.ThreadCount}");
             console.WriteLine($"Disk: {sysInfo.DiskFree / 1024 / 1024} MB free of {sysInfo.DiskTotal / 1024 / 1024} MB");
             console.WriteLine($"AI Processes: {sysInfo.AIProcesses}");
-            
+
             console.WriteLine("\nRunning Processes:");
             console.WriteLine("PID\tName\t\tCPU\tMemory\tStatus\tAI Type");
             foreach (var proc in processes)
             {
                 console.WriteLine($"{proc.PID}\t{proc.Name}\t\t{proc.CPU:F1}\t{proc.Memory} KB\t{proc.Status}\t{proc.AIType}");
             }
-            
+
             console.WriteLine("\n🤖 AI Diagnostics:");
             systemMonitor.AIDiagnostics();
         }
@@ -2509,7 +2801,7 @@ namespace SimpleOS
             try
             {
                 string realPath = GetRealPath(filePath);
-                
+
                 if (File.Exists(realPath))
                 {
                     string[] lines = File.ReadAllLines(realPath);
@@ -2537,7 +2829,7 @@ namespace SimpleOS
             try
             {
                 string realPath = GetRealPath(filePath);
-                
+
                 if (File.Exists(realPath))
                 {
                     string content = File.ReadAllText(realPath);
@@ -2545,7 +2837,7 @@ namespace SimpleOS
                     int words = content.Split(new[] { ' ', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries).Length;
                     int characters = content.Length;
                     int bytes = System.Text.Encoding.UTF8.GetByteCount(content);
-                    
+
                     console.WriteLine($"  {lines}  {words}  {characters}  {bytes} {filePath}");
                 }
                 else
@@ -2592,7 +2884,7 @@ namespace SimpleOS
             try
             {
                 string realPath = GetRealPath(filePath);
-                
+
                 if (File.Exists(realPath))
                 {
                     File.Delete(realPath);
@@ -2620,7 +2912,7 @@ namespace SimpleOS
             {
                 string realSourcePath = GetRealPath(sourcePath);
                 string realDestPath = GetRealPath(destPath);
-                
+
                 if (File.Exists(realSourcePath))
                 {
                     File.Copy(realSourcePath, realDestPath, true);
@@ -2643,7 +2935,7 @@ namespace SimpleOS
             {
                 string realSourcePath = GetRealPath(sourcePath);
                 string realDestPath = GetRealPath(destPath);
-                
+
                 if (File.Exists(realSourcePath))
                 {
                     File.Move(realSourcePath, realDestPath);
@@ -2669,7 +2961,7 @@ namespace SimpleOS
             }
 
             string subcommand = args[0].ToLower();
-            
+
             switch (subcommand)
             {
                 case "sync":
@@ -2683,7 +2975,7 @@ namespace SimpleOS
                         console.WriteLine("Syncing all changed files...");
                     }
                     break;
-                    
+
                 case "status":
                     var files = cloudSync.GetCloudFiles();
                     console.WriteLine($"☁️ Cloud Files: {files.Count}");
@@ -2692,7 +2984,7 @@ namespace SimpleOS
                         console.WriteLine($"  {file.Path} (v{file.Version})");
                     }
                     break;
-                    
+
                 case "files":
                     var cloudFiles = cloudSync.GetCloudFiles();
                     console.WriteLine("Cloud Files:");
@@ -2701,7 +2993,7 @@ namespace SimpleOS
                         console.WriteLine($"  {file.Path} - {file.Size} bytes - v{file.Version}");
                     }
                     break;
-                    
+
                 default:
                     console.WriteLine($"Unknown cloud command: {subcommand}");
                     break;
@@ -2717,7 +3009,7 @@ namespace SimpleOS
             }
 
             string subcommand = args[0].ToLower();
-            
+
             switch (subcommand)
             {
                 case "list":
@@ -2728,7 +3020,7 @@ namespace SimpleOS
                         console.WriteLine($"  {vm.Name} ({vm.OS}) - {vm.Status} - {vm.MemoryMB}MB");
                     }
                     break;
-                    
+
                 case "start":
                     if (args.Length >= 2)
                     {
@@ -2740,7 +3032,7 @@ namespace SimpleOS
                         }
                     }
                     break;
-                    
+
                 case "stop":
                     if (args.Length >= 2)
                     {
@@ -2751,16 +3043,16 @@ namespace SimpleOS
                         }
                     }
                     break;
-                    
+
                 case "create":
                     if (args.Length >= 4)
                     {
-                        var vm = vmManager.CreateVM(args[1], args[2], 
+                        var vm = vmManager.CreateVM(args[1], args[2],
                             int.Parse(args[3]), args.Length > 4 ? int.Parse(args[4]) : 20);
                         console.WriteLine($"✅ Created VM: {vm.Name}");
                     }
                     break;
-                    
+
                 default:
                     console.WriteLine($"Unknown VM command: {subcommand}");
                     break;
@@ -2789,7 +3081,7 @@ namespace SimpleOS
             console.WriteLine($"  Network Throughput: {metrics.NetworkThroughput} MB/s");
             console.WriteLine($"  AI Optimizations: {metrics.AIOptimizations}");
             console.WriteLine($"  System Uptime: {metrics.Uptime:hh\\:mm\\:ss}");
-            
+
             console.WriteLine("\n🤖 AI Performance Tips:");
             console.WriteLine("  • Use 'cache optimize' for better caching");
             console.WriteLine("  • Run 'network optimize' for network tuning");
